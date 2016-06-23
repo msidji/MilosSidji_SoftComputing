@@ -35,7 +35,8 @@ def image_bin_adaptive(image_gs):
 def invert(image):
     return 255-image
 def display_image(title, image, color= False):
-    plt.figure(figsize=(5, 8))
+    #plt.figure(figsize=(5, 8))
+    plt.figure(figsize=(8, 11))
     if color:
         plt.title(title)
         plt.imshow(image)
@@ -44,12 +45,12 @@ def display_image(title, image, color= False):
         plt.imshow(image, 'gray')
 def dilate(image):
     #kernel = np.ones((4,4)) # strukturni element 3x3 blok
-    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(7,7))
-    return cv2.dilate(image, kernel, iterations=1)
+    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
+    return cv2.dilate(image, kernel, iterations=2)
 def erode(image):
     #kernel = np.ones((7,7)) # strukturni element 3x3 blok
-    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(7,7))
-    return cv2.erode(image, kernel, iterations=1)
+    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
+    return cv2.erode(image, kernel, iterations=2)
 
 #*****************************************************
 #Funkcionalnost implementirana u V2
@@ -84,6 +85,7 @@ def remove_noise(binary_image):
     
 
 #*****************************************************
+# TODO - select_roiV3
 # Funkcija za selekciju regiona od interesa v3
 def select_roiV3(image_orig, image_bin):
     '''
@@ -91,18 +93,22 @@ def select_roiV3(image_orig, image_bin):
     i dodatno treba da sačuva rastojanja između susednih regiona.
     '''
     img, contours, hierarchy = cv2.findContours(image_bin.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    #Način određivanja kontura je promenjen na spoljašnje konture: cv2.RETR_EXTERNAL
+    # Način određivanja kontura je promenjen na spoljašnje konture: cv2.RETR_EXTERNAL
     regions_dict = {}
     regions_color = []
     image_orig_copy = image_orig.copy()
     for contour in contours: 
         x,y,w,h = cv2.boundingRect(contour)
         region = image_bin[y:y+h+1,x:x+w+1];
+        # Proveri da li je region odgovarajuće boje
         region_color = image_orig_copy[y:y+h+1,x:x+w+1];
         regions_color.append(region_color)
+        regions_signs = []
+        color = []
+        color = checkRegionColor(image_orig_copy, region_color, regions_signs)
         # Proširiti regions_dict elemente sa vrednostima boundingRect-a ili samim konturama
         regions_dict[x] = [resize_region(region), (x,y,w,h)]
-        cv2.rectangle(image_orig,(x,y),(x+w,y+h),(0,255,0),2)
+        cv2.rectangle(image_orig,(x,y),(x+w,y+h),color,3)
 
     sorted_regions_dict = collections.OrderedDict(sorted(regions_dict.items()))
     sorted_regions = np.array(sorted_regions_dict.values())
@@ -162,7 +168,7 @@ def select_roiV4(image_orig, image_bin):
             x = point[0]
             y = point[1]
             
-             # TODO 3 - koordinate tacaka regiona prebaciti u relativne koordinate
+             # koordinate tacaka regiona prebaciti u relativne koordinate
             '''Pretpostavimo da gornja leva tačka regiona ima apsolutne koordinate (100,100).
             Ako uzmemo tačku sa koordinatama unutar regiona, recimo (105,105), nakon
             prebacivanja u relativne koordinate tačka bi trebala imati koorinate (5,5) unutar
@@ -183,103 +189,130 @@ def select_roiV4(image_orig, image_bin):
         region_distances.append(-x-w)
     region_distances[-1] += sorted_rectangles[-1][0]
     
-    return image_orig, sorted_regions[:, 0], region_distances    
-
+    return image_orig, sorted_regions[:, 0], region_distances        
+    
+#*****************************************************    
+                                                    #*****************************************************
 #*****************************************************
-def findRegionsWithColor(image_color, regions_color):
+# cv2.mean (BLUE, GREEN, RED, ignored_value)            
+# TODO - findRegionsWithColor
+def findRegionsWithColor(image_color, regions_color, regions_signs):
+    print '\n>>>findRegionsWithColor'
     ind = 0
     for ind in xrange(len(regions_color)):
         region = regions_color[ind]
         mean_val = cv2.mean(region, mask = None)
-        print('mean[', ind,']', mean_val)
+        mean_val = map(prettyFloat4, mean_val)
+        print '\nmean_val[', ind, ']', '=', mean_val
+        
         region_size = isRegionTooSmall(region.shape[0], region.shape[1], image_color.shape[0], image_color.shape[1])
-
         if  region_size:
-
             if isRegionRed(ind, region):
-                print('radi isRegionRed')
+                print('FOUND isRegionRed ***')
+                regions_signs.append(region)
             elif isRegionBlue(ind, region):
-                print('radi isRegionBlue')     
+                print('FOUND isRegionBlue ***')     
+                regions_signs.append(region)
             elif isRegionWhite(ind, region):
-                print('radi isRegionWhite')
+                print('FOUND isRegionWhite ***')
+                regions_signs.append(region)
             else:
+                print 'H=', str(region.shape[0]), 'W=', str(region.shape[1])
                 print('else ---> nije odgovarajuce boje region')
                 plt.figure(10+ind)
-                display_image('mean_NOT_' + str(ind), region)                
+                display_image('mean_NOT_COLOR_' + str(ind), region)                
         else:
-            print('region size je too small')
+            print 'region size is TOO SMALL'
 
-    
-    
+# TODO - isRegionTooSmall    
 def isRegionTooSmall(region_height, region_width, img_height, img_width):
     region_povrsina = region_height * region_width
     img_povrsina = img_height * img_width
     odnos_povrsina = (region_povrsina*100) / float(img_povrsina)
-    print('odnos_povrsina', float(odnos_povrsina), 'region_povrsina', region_povrsina, 'img_povrsina', img_povrsina)
 
+    # bio je 1.1
     if odnos_povrsina > 1.1:
+        print 'odnos_povrsina=', format(odnos_povrsina, '.4f'), '\n\tregion_povrsina=', region_povrsina, '\n\timg_povrsina=', img_povrsina
         return True
     else:
         return False
-    
+
+# TODO - isRegionRed    
 def isRegionRed(ind, region):
     mean_val = cv2.mean(region, mask = None)
     if mean_val[0] > 115 and mean_val[1] < 150 and mean_val[2] < 150:
         if mean_val[0] > mean_val[1] and mean_val[0] > mean_val[2]:
             if mean_val[0] > 150 or ( mean_val[1] < 100 or mean_val[2] < 100):
-                print('meanRED_', str(ind), str(region.shape[0]))
-                plt.figure(100+ind)
+                print 'meanRED=[', str(ind), ']=', 'H=', str(region.shape[0]), 'W=', str(region.shape[1])
+                
+                plt.figure(10+ind)
                 display_image('meanR_' + str(ind), region)
                 return True
             else:
                 return False
                 
+# TODO - isRegionBlue
 def isRegionBlue(ind, region):
     mean_val = cv2.mean(region, mask = None)
     if mean_val[2] > 115 and mean_val[1] < 170 and mean_val[0] < 150:
         if mean_val[2] > mean_val[0] and mean_val[2] > mean_val[1]:
             if mean_val[2] > 150 or ( mean_val[0] < 100 or mean_val[1] < 100):
-                print('meanBLUE_', str(ind), str(region.shape[0]))
-                plt.figure(100+ind)
+                print 'meanBLUE[', str(ind), ']=', 'H=', str(region.shape[0]), 'W=', str(region.shape[1])
+                
+                plt.figure(10+ind)
                 display_image('meanB_' + str(ind), region)
                 return True
             else:
                 return False
 
+# TODO - isRegionWhite
 def isRegionWhite(ind, region):
     mean_val = cv2.mean(region, mask = None)
     if mean_val[0] > 180 and mean_val[1] > 140 and mean_val[2] > 140:
-        print('meanWHITE_', str(ind), str(region.shape[0]))
-        plt.figure(100+ind)
-        display_image('meanW_' + str(ind), region)
+        print 'meanWHITE=[', str(ind), ']=', 'H=', str(region.shape[0]), 'W=', str(region.shape[1])
+        
+        plt.figure(10+ind)
+        #display_image('meanW_' + str(ind), region)
         return True
     else:
         return False
         
-        
-        
-#*****************************************************
-# ucitavanje digitalne slike
-image_color = load_image('images/red2.jpg')
-# formiranje binarne slike
-img = image_bin_adaptive(image_gray((image_color)))
-#plt.figure(1)
-#display_image('Ucitavanje digitalne slike', image_color)
+class prettyFloat4(float):
+    def __repr__(self):
+        return "%0.4f" % self
 
-#plt.figure(2)
-#display_image('Formiranje grayscale slike', image_gray(image_color))
-
-plt.figure(3)
-display_image('Formiranje binarne slike', img)
-
-
-img_no_noise = remove_noise(img)
-plt.figure(4)
-display_image('image_bin sa remove_noise', img_no_noise)
-img_selected_regions, letters, region_distances, regions_color = select_roiV3(image_color.copy(), img_no_noise)
-print 'Broj prepoznatih regiona:', len(letters)
-
-plt.figure(5)
-display_image('img_selected_regions', img_selected_regions)
-
-findRegionsWithColor(image_color.copy(), regions_color)
+# TODO - checkRegionColor
+def checkRegionColor(image_color, region_color, regions_signs):
+    print '\n>>>checkRegionColor'
+    ind = 0
+    region = region_color
+    mean_val = cv2.mean(region, mask = None)
+    mean_val = map(prettyFloat4, mean_val)
+    print 'mean_val[', ind, ']', '=', mean_val
+    
+    region_size = isRegionTooSmall(region.shape[0], region.shape[1], image_color.shape[0], image_color.shape[1])
+    if  region_size:
+        if isRegionRed(ind, region):
+            print('FOUND isRegionRed ***')
+            regions_signs.append(region)
+            return [255, 0, 0]
+        elif isRegionBlue(ind, region):
+            print('FOUND isRegionBlue ***')     
+            regions_signs.append(region)
+            return [0, 0, 255]
+        elif isRegionWhite(ind, region):
+            print('FOUND isRegionWhite ***')
+            regions_signs.append(region)
+            return [0, 0, 0]
+        else:
+            print 'H=', str(region.shape[0]), 'W=', str(region.shape[1])
+            print('else ---> nije odgovarajuce boje region')
+            plt.figure(10+ind)
+            display_image('mean_NOT_COLOR_' + str(ind), region)
+            return [160, 32, 240] # purple
+    else:
+        print 'region size is TOO SMALL'  
+        return [0, 255, 0] # green
+            
+            
+            
