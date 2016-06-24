@@ -43,6 +43,8 @@ import numpy as np
 #my.findRegionsWithColor(img_color.copy(), regions_color, regions_signs)
 #print '\nlen(regions_signs)=', len(regions_signs)
 
+
+
 #*****************************************************
 # TODO - NEURAL NETWORK
 # obucavanje neuronske mreze
@@ -58,7 +60,7 @@ outputs_obucavanje = nn.convert_output(signs_alphabet)
 print '\nlen(inputs_obucavanje)=', len(inputs_obucavanje), ' len(outputs_obucavanje)=', len(outputs_obucavanje)
 ann = nn.create_ann()
 ann = nn.train_ann(ann, inputs_obucavanje, outputs_obucavanje)
-#
+
 ## predikcija na osnovu obucene neuronske mreze
 #image_test_original = my.load_image('images/stop1.jpg')
 #image_test = my.remove_noise(my.image_bin(my.image_gray(image_test_original)))

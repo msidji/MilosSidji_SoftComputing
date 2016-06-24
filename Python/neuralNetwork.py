@@ -45,7 +45,7 @@ def create_ann():
     # Postavljanje slojeva neurona mreže 'ann'
     ann.add(Dense(input_dim=784, output_dim=128,init="glorot_uniform"))
     ann.add(Activation("sigmoid"))
-    ann.add(Dense(input_dim=128, output_dim=27,init="glorot_uniform"))
+    ann.add(Dense(input_dim=128, output_dim=1,init="glorot_uniform"))
     ann.add(Activation("sigmoid"))
     return ann
    

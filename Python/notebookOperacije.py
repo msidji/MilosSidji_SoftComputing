@@ -9,9 +9,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 #from scipy.spatial import distance
 
-#import matplotlib.pylab as pylab
-#pylab.rcParams['figure.figsize'] = 16, 12 # za prikaz većih slika i plotova, zakomentarisati ako nije potrebno
-
 #*****************************************************
 # TODO - V1
 #Funkcionalnost implementirana u V1
