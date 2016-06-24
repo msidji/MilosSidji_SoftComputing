@@ -44,7 +44,7 @@ def display_image_small(title, image, color= False):
         plt.imshow(image, 'gray')
 def dilate(image):
     #kernel = np.ones((4,4)) # strukturni element 3x3 blok
-    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(5,5))
+    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(4,4))
     return cv2.dilate(image, kernel, iterations=1)
 def erode(image):
     #kernel = np.ones((7,7)) # strukturni element 3x3 blok
@@ -54,19 +54,12 @@ def resize_region(region):
     resized = cv2.resize(region,(28,28), interpolation = cv2.INTER_NEAREST)
     return resized
 
-#*****************************************************
 # Uklanjanje šuma
 def remove_noise(binary_image):
     ret_val = erode(dilate(binary_image))
-    #
-    #
     ret_val = invert(ret_val)
-    #
-    #
     return ret_val
     
-    
-
 #*****************************************************
 # TODO - select_roiV3
 # Funkcija za selekciju regiona od interesa v3
@@ -75,7 +68,30 @@ def select_roiV3(image_orig, image_bin):
     Funkcija kao u vežbi 2, iscrtava pravougaonike na originalnoj slici, pronalazi sortiran niz regiona sa slike,
     i dodatno treba da sačuva rastojanja između susednih regiona.
     '''
-    img, contours, hierarchy = cv2.findContours(image_bin.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    img, contours_borders, hierarchy = cv2.findContours(image_bin.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # rotacija contura
+    contours = []
+    contour_angles = []
+    contour_centers = []
+    contour_sizes = []
+    for contour in contours_borders:
+        center, size, angle = cv2.minAreaRect(contour)
+        xt,yt,h,w = cv2.boundingRect(contour)
+
+        region_points = []
+        for i in range (xt,xt+h):
+            for j in range(yt,yt+w):
+                dist = cv2.pointPolygonTest(contour,(i,j),False)
+                if dist>=0 and image_bin[j,i]==255: # da li se tacka nalazi unutar konture?
+                    region_points.append([i,j])
+        contour_centers.append(center)
+        contour_angles.append(angle)
+        contour_sizes.append(size)
+        contours.append(region_points)    
+    # postavljanje kontura u vertikalan polozaj
+    contours = rotate_regions(contours, contour_angles, contour_centers, contour_sizes)
+        
     # Način određivanja kontura je promenjen na spoljašnje konture: cv2.RETR_EXTERNAL
     regions_dict = {}
     regions_color = []
@@ -97,19 +113,10 @@ def select_roiV3(image_orig, image_bin):
 
     sorted_regions_dict = collections.OrderedDict(sorted(regions_dict.items()))
     sorted_regions = np.array(sorted_regions_dict.values())
-    
-    sorted_rectangles = sorted_regions[:,1]
-    region_distances = [-sorted_rectangles[0][0]-sorted_rectangles[0][2]]
-    # Izdvojiti sortirane parametre opisujućih pravougaonika
-    # Izračunati rastojanja između svih susednih regiona po x osi i dodati ih u region_distances niz
-    for x,y,w,h in sorted_regions[1:-1, 1]:
-        region_distances[-1] += x
-        region_distances.append(-x-w)
-    region_distances[-1] += sorted_rectangles[-1][0]
-    
-    return image_orig, sorted_regions[:, 0], region_distances, regions_color
+        
+    return image_orig, sorted_regions[:, 0], regions_color
 
-
+# TODO - select_roiV4
 # Funkcija za selekciju regiona od interesa v4
 def select_roiV4(image_orig, image_bin):
     
@@ -134,11 +141,8 @@ def select_roiV4(image_orig, image_bin):
         contour_sizes.append(size)
         contours.append(region_points)
     
-    #Postavljanje kontura u vertikalan polozaj
-    #contours = rotate_regions(contours, contour_angles, contour_centers, contour_sizes)
-    
-    #spajanje kukica i kvacica
-    #contours = merge_regions(contours)
+    # postavljanje kontura u vertikalan polozaj
+    contours = rotate_regions(contours, contour_angles, contour_centers, contour_sizes)
     
     regions_dict = {}
     for contour in contours:
@@ -161,24 +165,56 @@ def select_roiV4(image_orig, image_bin):
             '''
             region[y-min_y,x-min_x] = 255
 
-        
         regions_dict[min_x] = [resize_region(region), (min_x,min_y,max_x-min_x,max_y-min_y)]
         
     sorted_regions_dict = collections.OrderedDict(sorted(regions_dict.items()))
     sorted_regions = np.array(sorted_regions_dict.values())
-    
-    sorted_rectangles = sorted_regions[:,1]
-    region_distances = [-sorted_rectangles[0][0]-sorted_rectangles[0][2]]
-    for x,y,w,h in sorted_regions[1:-1, 1]:
-        region_distances[-1] += x
-        region_distances.append(-x-w)
-    region_distances[-1] += sorted_rectangles[-1][0]
-    
-    return image_orig, sorted_regions[:, 0], region_distances        
+        
+    return image_orig, sorted_regions[:, 0]
+
+# TODO - Rotiranje regiona
+def rotate_regions(contours,angles,centers,sizes):
+    '''Funkcija koja vrši rotiranje regiona oko njihovih centralnih tačaka
+    Args:
+        contours: skup svih kontura [kontura1, kontura2, ..., konturaN]
+        angles:   skup svih uglova nagiba kontura [nagib1, nagib2, ..., nagibN]
+        centers:  skup svih centara minimalnih pravougaonika koji su opisani 
+                  oko kontura [centar1, centar2, ..., centarN]
+        sizes:    skup parova (height,width) koji predstavljaju duzine stranica minimalnog
+                  pravougaonika koji je opisan oko konture [(h1,w1), (h2,w2), ...,(hN,wN)]
+    Return:
+        ret_val: rotirane konture'''
+    ret_val = []
+    for idx, contour in enumerate(contours):
+                
+        angle = angles[idx]
+        cx,cy = centers[idx]
+        height, width = sizes[idx]
+#        if width<height:
+#            angle+=90
+            
+        # Rotiranje svake tačke regiona oko centra rotacije
+        alpha = np.pi/2 - abs(np.radians(angle))
+        region_points_rotated = np.ndarray((len(contour), 2), dtype=np.int16)
+        for i, point in enumerate(contour):
+            x = point[0]
+            y = point[1]
+            
+            # izračunati koordinate tačke nakon rotacije
+            rx = np.sin(alpha)*(x-cx) - np.cos(alpha)*(y-cy) + cx
+            ry = np.cos(alpha)*(x-cx) + np.sin(alpha)*(y-cy) + cy
+                        
+            region_points_rotated[i] = [rx,ry]
+        ret_val.append(region_points_rotated)
+
+    return ret_val
+
     
 #*****************************************************    
                                                     #*****************************************************
 #*****************************************************
+    
+    
 # cv2.mean (BLUE, GREEN, RED, ignored_value)            
 # TODO - findRegionsWithColor
 def findRegionsWithColor(image_color, regions_color, regions_signs):
@@ -205,7 +241,7 @@ def findRegionsWithColor(image_color, regions_color, regions_signs):
                 print 'H=', str(region.shape[0]), 'W=', str(region.shape[1])
                 print('else ---> nije odgovarajuce boje region')
                 plt.figure(10+ind)
-                display_image_small('mean_NOT_COLOR_' + str(ind), region)                
+                #display_image_small('mean_NOT_COLOR_' + str(ind), region)                
         else:
             print 'region size is TOO SMALL'
 
@@ -257,7 +293,7 @@ def isRegionWhite(ind, region):
         print 'meanWHITE[', str(ind), ']=', 'H=', str(region.shape[0]), 'W=', str(region.shape[1])
         
         plt.figure(10+ind)
-        #display_image('meanW_' + str(ind), region)
+        display_image_small('meanW_' + str(ind), region)
         return True
     else:
         return False
@@ -293,7 +329,7 @@ def checkRegionColor(image_color, region_color, regions_signs, index):
             print 'H=', str(region.shape[0]), 'W=', str(region.shape[1])
             print('else ---> nije odgovarajuce boje region')
             plt.figure(10+ind)
-            display_image_small('mean_NOT_COLOR_' + str(ind), region)
+            #display_image_small('mean_NOT_COLOR_' + str(ind), region)
             return [160, 32, 240] # purple
     else:
         print 'region size is TOO SMALL'  

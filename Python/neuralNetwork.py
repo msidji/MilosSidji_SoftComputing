@@ -45,7 +45,7 @@ def create_ann():
     # Postavljanje slojeva neurona mreže 'ann'
     ann.add(Dense(input_dim=784, output_dim=128,init="glorot_uniform"))
     ann.add(Activation("sigmoid"))
-    ann.add(Dense(input_dim=128, output_dim=1,init="glorot_uniform"))
+    ann.add(Dense(input_dim=128, output_dim=2,init="glorot_uniform"))
     ann.add(Activation("sigmoid"))
     return ann
    
@@ -63,3 +63,23 @@ def train_ann(ann, X_train, y_train):
       
     return ann
 
+# TODO - display_result
+def display_result_ann(outputs, alphabet):
+    print '\n>>>display_result_ann'
+    '''
+    Funkcija određuje koja od grupa predstavlja razmak između reči, a koja između slova, i na osnovu
+    toga formira string od elemenata pronađenih sa slike.
+    Args:
+        outputs: niz izlaza iz neuronske mreže.
+        alphabet: niz karaktera koje je potrebno prepoznati
+        kmeans: obučen kmeans objekat
+    Return:
+        Vraća formatiran string
+    '''
+    result = alphabet[winner(outputs[0])]
+    for idx, output in enumerate(outputs[1:,:]):
+        # Iterativno dodavati prepoznate elemente kao u vežbi 2, alphabet[winner(output)]
+
+        result += alphabet[winner(output)]
+        result += ' i '
+    return result
