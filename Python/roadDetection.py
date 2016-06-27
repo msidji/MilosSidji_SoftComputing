@@ -4,46 +4,39 @@ Created on Fri Jun 24 04:30:50 2016
 
 @author: Milos
 """
-
+import notebookOperacije as my
 import numpy as np
 import cv2
-#from matplotlib import pyplot as plt
-#import imutils
-
-def invert_img(img):
-    img = (255-img)
-    return img
 
 def canny(imgray):
-    imgray = cv2.GaussianBlur(imgray, (5,5), 200)
-    canny_low = 5
-    canny_high = 150
+    # zamagljivanje slike pomoćću Gaussian filtera, korisno za uklanjanje šuma
+    # zapravo uklnja visoke frekvencije (šumove, ivice) sa slike
+    img_gaussian = cv2.GaussianBlur(imgray, (5,5), 200)
+    my.display_image('3. gaussian', img_gaussian)
 
-    thresh = cv2.Canny(imgray,canny_low,canny_high)
-    return thresh
+    canny_low = 50 #5
+    canny_high = 200 #150
+
+    # pronalazi ivice na slici pomoću Canny algoritma
+    # pomoću 1. i 2. threshold-a za histesisnu proceduru
+    img_canny = cv2.Canny(img_gaussian,canny_low,canny_high)
+    my.display_image('4. canny', img_canny)
+
+    return img_canny
 
 def filtering(imgray):
-    thresh = canny(imgray)
-    edges = canny(imgray) # docs refer to return value as "edges"
-    retval, dst = cv2.threshold(edges, 128, 255,cv2.THRESH_BINARY_INV)
-    
-    #minLineLength = 1
-    #maxLineGap = 1
+    img_canny = canny(imgray)
 
+    # Houghova linijska tranformacija za detektovanje pravih linija
+    hough_thresh = 50 #50
+    lines = cv2.HoughLines(img_canny,1,np.pi/180,hough_thresh)
+    print 'lines.shape=',lines.shape
 
-    lines = cv2.HoughLines(thresh,1,np.pi/180,50)
-    #lines = cv2.HoughLinesP(thresh,2,np.pi/180,100,minLineLength,maxLineGap)
-    print lines.shape
+    h = img_color.shape[0]/3
+    print 'h=',h
 
-    # Code for HoughLinesP
-    '''
-    for i in range(0,lines.shape[0]):
-        for x1,y1,x2,y2 in lines[i]:
-            cv2.line(img,(x1,y1),(x2,y2),(0,255,0),2)
-    '''
-
-    # Code for HoughLines
-    for i in range(0,5):
+    # računnje i iscrtravanje Hough-ovih linija
+    for i in range(0,3):
         for rho,theta in lines[i]:
             a = np.cos(theta)
             b = np.sin(theta)
@@ -54,35 +47,18 @@ def filtering(imgray):
             x2 = int(x0 - 1000*(-b))
             y2 = int(y0 - 1000*(a))
 
-            cv2.line(img,(x1,y1),(x2,y2),(0,0,255),2)
-
-    return thresh
-    
-def docsOpenCV():
-    img = cv2.imread('images/put2.jpg')
-    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray,50,150,apertureSize = 3)
-    minLineLength = 100
-    maxLineGap = 10
-    lines = cv2.HoughLinesP(edges,1,np.pi/180,100,minLineLength,maxLineGap)
-    for x1,y1,x2,y2 in lines[0]:
-        cv2.line(img,(x1,y1),(x2,y2),(0,255,0),2)
-    
-    cv2.imwrite('images/put1Result.png',img)    
+            cv2.line(img_result,(x1,y1),(x2,y2),(255,0,0),5)
     
 #*****************************************************
+    
 # TODO - run
-img = cv2.imread('images/put3.jpg')
-imgray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+img_color = cv2.imread('images_test/put11.jpg')
+img_result = img_color.copy()
+img_gray = cv2.cvtColor(img_color, cv2.COLOR_BGR2GRAY)
 
-#img = cv2.resize(img, height = 500)
-#imgray = cv2.resize(imgray, height = 500)
+filtering(img_gray)
 
-thresh = filtering(imgray)
-
-cv2.imshow('original', img)
-cv2.imshow('result', thresh)
-cv2.waitKey(0)
-
-#docsOpenCV()
+my.display_image('1. original', img_color)
+my.display_image('2. gray', img_gray)
+my.display_image('5. result', img_result)
 
