@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 
 # TODO - IMAGE PROCESSING
-img_path = 'images/obucavajuciSkup8.jpg'
+img_path = 'images/stop12.jpg'
 # ucitavanje digitalne slike
 img_color = my.load_image(img_path)
 my.plt.figure(1)

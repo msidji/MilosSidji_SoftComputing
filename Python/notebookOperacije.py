@@ -45,6 +45,15 @@ def display_image_small(title, image, color= False):
     else:
         plt.title(title)
         plt.imshow(image, 'gray')
+def dilateColor(image):#POVECAVA BELE
+    #kernel = np.ones((3,3)) # strukturni element 3x3 blok
+    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(4,4))
+    return cv2.dilate(image, kernel, iterations=1)
+def erodeColor(image): #UKLANJA  BELE
+    #kernel = np.ones((3,3)) # strukturni element 3x3 blok
+    kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(3,3))
+    return cv2.erode(image, kernel, iterations=2)
+        
 def dilate(image):#POVECAVA BELE
     #kernel = np.ones((3,3)) # strukturni element 3x3 blok
     kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(5,5))
@@ -62,7 +71,11 @@ def remove_noise(binary_image):
     ret_val = erode(dilate(binary_image))
     ret_val = invert(ret_val)
     return ret_val
-    
+# Uklanjanje šuma
+def remove_noiseColor(binary_image):
+    ret_val = erodeColor(dilateColor(binary_image))
+    ret_val = invert(ret_val)
+    return ret_val    
 #*****************************************************
 # TODO - select_roiV3
 # Funkcija za selekciju regiona od interesa v3

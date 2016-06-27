@@ -9,7 +9,7 @@ import notebookOperacije as  my
 
 # TODO - IMAGE PROCESSING
 # ucitavanje digitalne slike
-img_color = my.load_image('images/obucavajuciSkup7.jpg')
+img_color = my.load_image('images/stop15.jpg')
 my.plt.figure(1)
 my.display_image('Ucitavanje digitalne slike', img_color)
 
@@ -24,7 +24,7 @@ my.plt.figure(3)
 my.display_image('Formiranje binarne slike', img_bin)
 
 # uklanjanje šuma sa binarne slike
-img_no_noise = my.remove_noise(img_bin)
+img_no_noise = my.remove_noiseColor(img_bin)
 my.plt.figure(4)
 my.display_image('img_bin sa remove_noise', img_no_noise)
 
